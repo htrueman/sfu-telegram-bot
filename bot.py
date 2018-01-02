@@ -8,6 +8,8 @@ import time
 import os
 
 bot = telepot.Bot(os.getenv('BOT_SECRET'))
+BASE_IMGS_PATH = 'files/imgs/'
+BASE_DOCS_PATH = 'files/docs/'
 
 
 def zipdir(path, ziph):
@@ -23,17 +25,24 @@ def zipdir(path, ziph):
 def on_chat_message(msg):
     content_type, chat_type, chat_id = telepot.glance(msg)
     if content_type in ['photo', 'document']:
+        path_to_save = BASE_IMGS_PATH if content_type == 'photo' else BASE_DOCS_PATH
+        user_files_dir = path_to_save + msg['from']['username'] + '/'
+        if not os.path.exists(user_files_dir):
+            os.makedirs(user_files_dir)
+
         if content_type == 'photo':
             max_size_file_id = msg['photo'][-1]['file_id']
             max_size_file_dict = bot.getFile(max_size_file_id)
             bot.download_file(
                 max_size_file_id,
-                'files/imgs/' + max_size_file_dict['file_id'] + '.' + max_size_file_dict['file_path'].split('.')[-1])
+                user_files_dir +
+                max_size_file_dict['file_id'] +
+                '.' + max_size_file_dict['file_path'].split('.')[-1])
 
         elif content_type == 'document':
             document_id = msg['document']['file_id']
             document_name = msg['document']['file_name']
-            bot.download_file(document_id, 'files/docs/' + document_name)
+            bot.download_file(document_id, user_files_dir + document_name)
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text='Yes'.format('?'), callback_data='save')],
@@ -45,7 +54,7 @@ def on_chat_message(msg):
             'Zip and save {} images?'.format('?'),
             reply_markup=keyboard)
     else:
-        bot.sendMessage(chat_id, "Send me files or images and I'll zip it for you.")
+        bot.sendMessage(chat_id, "Send me files and I'll zip them for you.")
 
 
 def on_callback_query(msg):
