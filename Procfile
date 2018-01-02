@@ -1,1 +1,1 @@
-worker: sh secrets.sh 'python bot.py'
+web: python bot.py

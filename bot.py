@@ -9,7 +9,7 @@ from shutil import rmtree
 from contextlib import suppress
 # import subprocess
 
-bot = telepot.Bot(os.getenv('BOT_SECRET'))
+bot = telepot.Bot('526746468:AAEiRiGQdtNV0NsMru72kNETPyv7j4sqajw')
 BASE_IMGS_PATH = 'files/imgs/'
 BASE_DOCS_PATH = 'files/docs/'
 
