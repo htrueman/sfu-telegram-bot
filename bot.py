@@ -12,9 +12,12 @@ bot = telepot.Bot(os.getenv('BOT_SECRET'))
 
 def zipdir(path, ziph):
     # ziph is zipfile handle
+    abs_src = os.path.abspath(path)
     for root, dirs, files in os.walk(path):
         for file in files:
-            ziph.write(os.path.join(root, file))
+            absname = os.path.abspath(os.path.join(root, file))
+            arcname = absname[len(abs_src) + 1:]
+            ziph.write(absname, arcname)
 
 
 def on_chat_message(msg):
@@ -52,8 +55,8 @@ def on_callback_query(msg):
         zipf = zipfile.ZipFile('Python.zip', 'w', zipfile.ZIP_DEFLATED)
         zipdir('files/imgs', zipf)
         zipf.close()
-        bot.sendDocument(from_id, open("Python.zip", 'rb'))
-        os.remove("Python.zip")
+        bot.sendDocument(from_id, open('Python.zip', 'rb'))
+        os.remove('Python.zip')
     elif query_data == 'discard':
         pass
 
