@@ -45,8 +45,8 @@ def on_chat_message(msg):
             bot.download_file(document_id, user_files_dir + document_name)
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text='Yes'.format('?'), callback_data='save')],
-            [InlineKeyboardButton(text="No, I don't need it".format('?'), callback_data='discard')]
+            [InlineKeyboardButton(text='Yes'.format('?'), callback_data='save ' + msg['from']['username'])],
+            [InlineKeyboardButton(text="Nope".format('?'), callback_data='discard ' + msg['from']['username'])]
         ])
 
         bot.sendMessage(
@@ -60,13 +60,14 @@ def on_chat_message(msg):
 def on_callback_query(msg):
     query_id, from_id, query_data = telepot.glance(msg, flavor='callback_query')
     print('Callback Query:', query_id, from_id, query_data)
-    if query_data == 'save':
-        zipf = zipfile.ZipFile('Python.zip', 'w', zipfile.ZIP_DEFLATED)
-        zipdir('files/imgs', zipf)
+    action, username = query_data.split()[0], query_data.split()[1]
+    if action == 'save':
+        zipf = zipfile.ZipFile(username, 'w', zipfile.ZIP_DEFLATED)
+        zipdir('files/imgs/' + username, zipf)
         zipf.close()
         bot.sendDocument(from_id, open('Python.zip', 'rb'))
         os.remove('Python.zip')
-    elif query_data == 'discard':
+    elif action == 'discard':
         pass
 
     bot.answerCallbackQuery(query_id, text='Got it')
