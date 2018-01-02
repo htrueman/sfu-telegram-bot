@@ -1,0 +1,1 @@
+web: sh secrets.sh 'python bot.py'
