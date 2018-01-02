@@ -7,6 +7,7 @@ import time
 import os
 from shutil import rmtree
 from contextlib import suppress
+# import subprocess
 
 bot = telepot.Bot(os.getenv('BOT_SECRET'))
 BASE_IMGS_PATH = 'files/imgs/'
@@ -64,6 +65,10 @@ def on_callback_query(msg):
 
     action, username = query_data.split()[0], query_data.split()[1]
     if action == 'save':
+        # base_path = os.getcwd()
+        # os.chdir(base_path + '/' + BASE_IMGS_PATH)
+        # subprocess.check_call(['sudo', base_path + '/img_renamer.sh', '1'])
+        # os.chdir(base_path)
         zipf = zipfile.ZipFile(username + '.zip', 'w', zipfile.ZIP_DEFLATED)
         zipdir(BASE_IMGS_PATH + username, zipf, 'imgs')
         zipdir(BASE_DOCS_PATH + username, zipf, 'docs')
