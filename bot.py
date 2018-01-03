@@ -7,7 +7,6 @@ import time
 import os
 from shutil import rmtree
 from contextlib import suppress
-# import subprocess
 
 bot = telepot.Bot('526746468:AAEiRiGQdtNV0NsMru72kNETPyv7j4sqajw')
 BASE_IMGS_PATH = 'files/imgs/'
@@ -22,6 +21,15 @@ def zipdir(path, ziph, files_type):
             absname = os.path.abspath(os.path.join(root, file))
             arcname = files_type + '/' + absname[len(abs_src) + 1:]
             ziph.write(absname, arcname)
+
+
+def rename_files_with_modified_time(path):
+    for root, dirs, files in os.walk(path):
+        for filename in files:
+            modified_time = os.path.getmtime(path + '/' + filename)  # get file modification timestamp
+            file_ext = filename.split('.')[-1]
+            new_name = str(modified_time).split('.')[0] + str(modified_time).split('.')[1]
+            os.rename(path + '/' + filename, path + '/' + new_name + '.' + file_ext)
 
 
 def on_chat_message(msg):
@@ -46,10 +54,11 @@ def on_chat_message(msg):
             document_name = msg['document']['file_name']
             bot.download_file(document_id, user_files_dir + document_name)
 
+    elif content_type == 'text' and msg['text'] == '/zip':
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text='Yes'.format('?'), callback_data='save ' + msg['from']['username'])],
             [InlineKeyboardButton(
-                text="Nope, remove the files above".format('?'), callback_data='discard ' + msg['from']['username'])]
+                text="Nope, remove the files above", callback_data='discard ' + msg['from']['username'])]
         ])
 
         bot.sendMessage(
@@ -57,7 +66,9 @@ def on_chat_message(msg):
             'Zip and save these files?',
             reply_markup=keyboard)
     else:
-        bot.sendMessage(chat_id, "Send me the files and I'll zip them for you.")
+        bot.sendMessage(
+            chat_id,
+            "Send me the files and I'll zip them for you. Type /zip after the files are uploaded.")
 
 
 def on_callback_query(msg):
@@ -65,10 +76,8 @@ def on_callback_query(msg):
 
     action, username = query_data.split()[0], query_data.split()[1]
     if action == 'save':
-        # base_path = os.getcwd()
-        # os.chdir(base_path + '/' + BASE_IMGS_PATH)
-        # subprocess.check_call(['sudo', base_path + '/img_renamer.sh', '1'])
-        # os.chdir(base_path)
+        rename_files_with_modified_time(os.getcwd() + '/' + BASE_IMGS_PATH + username)
+
         zipf = zipfile.ZipFile(username + '.zip', 'w', zipfile.ZIP_DEFLATED)
         zipdir(BASE_IMGS_PATH + username, zipf, 'imgs')
         zipdir(BASE_DOCS_PATH + username, zipf, 'docs')
