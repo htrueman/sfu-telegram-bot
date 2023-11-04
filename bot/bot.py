@@ -5,7 +5,8 @@ from .config import BOT
 
 
 class ZipperBot:
-    def start(self) -> None:
+    @staticmethod
+    def start() -> None:
         action = ActionProcessor()
         MessageLoop(
             BOT,

@@ -23,7 +23,7 @@ class ActionProcessor:
     BASE_IMAGES_PATH = os.path.join(SAVE_DIR_NAME, IMAGES_DIR_NAME)
     BASE_DOCS_PATH = os.path.join(SAVE_DIR_NAME, DOCS_DIR_NAME)
     BUFFER_LIMIT = 20
-    BYTE_TO_MEGABYTE = 1024 ** 2
+    BYTE_TO_MEGABYTE = 1024**2
 
     def __init__(self):
         self.content_type_actions = {
@@ -40,23 +40,36 @@ class ActionProcessor:
         with suppress(ValueError):
             converted_content_type = ContentType.ANY
             converted_content_type = ContentType(content_type)
-        path_to_save = self.BASE_IMAGES_PATH if converted_content_type == ContentType.PHOTO else self.BASE_DOCS_PATH
+        path_to_save = (
+            self.BASE_IMAGES_PATH
+            if converted_content_type == ContentType.PHOTO
+            else self.BASE_DOCS_PATH
+        )
         user_files_dir = os.path.join(path_to_save, username)
         document_content_types = [
-            cont_type for cont_type in self.content_type_actions if cont_type != ContentType.TEXT
+            cont_type
+            for cont_type in self.content_type_actions
+            if cont_type != ContentType.TEXT
         ]
 
-        if not os.path.exists(user_files_dir) and converted_content_type in document_content_types:
+        if (
+            not os.path.exists(user_files_dir)
+            and converted_content_type in document_content_types
+        ):
             os.makedirs(user_files_dir)
 
         if converted_content_type in document_content_types:
-            self.content_type_actions[converted_content_type](msg, user_files_dir, chat_id, content_type)
+            self.content_type_actions[converted_content_type](
+                msg, user_files_dir, chat_id, content_type
+            )
         elif converted_content_type == ContentType.TEXT:
             self.content_type_actions[converted_content_type](msg, username, chat_id)
         else:
             self.handle_other_content(chat_id)
 
-    def handle_photo(self, msg: Message, user_files_dir: str, chat_id: int, *args) -> None:
+    def handle_photo(
+        self, msg: Message, user_files_dir: str, chat_id: int, *args
+    ) -> None:
         photo_id = msg["photo"][-1]["file_id"]
         photo_data = BOT.getFile(photo_id)
         photo_ext = f".{photo_data['file_path'].split('.')[-1]}"
@@ -64,7 +77,9 @@ class ActionProcessor:
         local_image_path = os.path.join(user_files_dir, save_photo_name)
         self.download_control(photo_id, local_image_path, chat_id)
 
-    def handle_document(self, msg: Message, user_files_dir: str, chat_id: int, document_type: str) -> None:
+    def handle_document(
+        self, msg: Message, user_files_dir: str, chat_id: int, document_type: str
+    ) -> None:
         media_id = msg[document_type]["file_id"]
         media_name = msg[document_type]["file_name"]
         local_media_path = os.path.join(user_files_dir, media_name)
@@ -76,7 +91,9 @@ class ActionProcessor:
                 inline_keyboard=[
                     [
                         self.create_button("Yes", "save", username),
-                        self.create_button("Nope, clear the buffer", "discard", username),
+                        self.create_button(
+                            "Nope, clear the buffer", "discard", username
+                        ),
                     ],
                 ]
             )
@@ -88,7 +105,8 @@ class ActionProcessor:
                 "Send me the files and I'll zip them for you. Type /zip after the files are uploaded.",
             )
 
-    def handle_other_content(self, chat_id: int) -> None:
+    @staticmethod
+    def handle_other_content(chat_id: int) -> None:
         BOT.sendMessage(
             chat_id,
             "Send me the files and I'll zip them for you. Type /zip after the files are uploaded.",
@@ -109,8 +127,12 @@ class ActionProcessor:
         if action == "save":
             self.rename_files_with_modified_time(images_path)
             zipf = zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED)
-            self.zipdir(os.path.join(self.BASE_IMAGES_PATH, username), zipf, IMAGES_DIR_NAME)
-            self.zipdir(os.path.join(self.BASE_DOCS_PATH, username), zipf, DOCS_DIR_NAME)
+            self.zipdir(
+                os.path.join(self.BASE_IMAGES_PATH, username), zipf, IMAGES_DIR_NAME
+            )
+            self.zipdir(
+                os.path.join(self.BASE_DOCS_PATH, username), zipf, DOCS_DIR_NAME
+            )
             zipf.close()
             message = self.buffer_control(
                 self.get_folder_content_size(files_path),
@@ -132,7 +154,9 @@ class ActionProcessor:
             removed_files_number = self.clear_path(files_path)
             BOT.answerCallbackQuery(
                 query_id,
-                self.generate_removal_message(removed_images_number, removed_files_number),
+                self.generate_removal_message(
+                    removed_images_number, removed_files_number
+                ),
             )
 
     def is_buffer_filled(self, username: str) -> bool:
@@ -144,7 +168,8 @@ class ActionProcessor:
         )
         return is_images_buffer_filled or is_docs_buffer_filled
 
-    def download_control(self, file_id: str, dest: str, chat_id: int) -> None:
+    @staticmethod
+    def download_control(file_id: str, dest: str, chat_id: int) -> None:
         try:
             BOT.download_file(file_id, dest)
         except telepot.exception.TelegramError:
@@ -153,7 +178,8 @@ class ActionProcessor:
                 "File too large! Unable to download. Please try to send a smaller one.",
             )
 
-    def zipdir(self, path: str, ziph: zipfile.ZipFile, files_type: str) -> None:
+    @staticmethod
+    def zipdir(path: str, ziph: zipfile.ZipFile, files_type: str) -> None:
         abs_src = os.path.abspath(path)
         for root, dirs, files in os.walk(path):
             for file in files:
@@ -161,11 +187,14 @@ class ActionProcessor:
                 end_path = os.path.join(files_type, abs_file_path[len(abs_src) + 1:])
                 ziph.write(abs_file_path, end_path)
 
-    def rename_files_with_modified_time(self, path: str) -> None:
+    @staticmethod
+    def rename_files_with_modified_time(path: str) -> None:
         for root, dirs, files in os.walk(path):
             for filename in files:
                 modified_time = os.path.getmtime(os.path.join(path, filename))
-                formatted_time = datetime.fromtimestamp(modified_time).strftime("image_%Y-%m-%d_%H-%M-%S_%f")[:-3]
+                formatted_time = datetime.fromtimestamp(modified_time).strftime(
+                    "image_%Y-%m-%d_%H-%M-%S_%f"
+                )[:-3]
                 file_ext = filename.split(".")[-1]
                 new_name = f"{formatted_time}.{file_ext}"
                 os.rename(
@@ -173,13 +202,17 @@ class ActionProcessor:
                     os.path.join(path, new_name),
                 )
 
-    def create_button(self, text: str, user_option: str, username: str) -> InlineKeyboardButton:
+    @staticmethod
+    def create_button(
+        text: str, user_option: str, username: str
+    ) -> InlineKeyboardButton:
         return InlineKeyboardButton(
             text=text,
             callback_data=user_option + " " + username,
         )
 
-    def clear_path(self, path: str) -> int:
+    @staticmethod
+    def clear_path(path: str) -> int:
         remove_files_number = 0
         if os.path.exists(path):
             remove_files_number = sum(
@@ -189,7 +222,8 @@ class ActionProcessor:
                 rmtree(path)
         return remove_files_number
 
-    def generate_removal_message(self, removed_images: int, removed_files: int) -> str:
+    @staticmethod
+    def generate_removal_message(removed_images: int, removed_files: int) -> str:
         messages = {
             "image": removed_images,
             "file": removed_files,
