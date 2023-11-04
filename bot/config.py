@@ -10,4 +10,3 @@ BOT = telepot.Bot(token=API_TOKEN)
 SAVE_DIR_NAME = "files"
 IMAGES_DIR_NAME = "images"
 DOCS_DIR_NAME = "docs"
-BUFFER_LIMIT = 20

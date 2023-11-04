@@ -1,5 +1,3 @@
 from .bot import ZipperBot
 
-__all__ = (
-    "ZipperBot",
-)
+__all__ = ("ZipperBot",)
