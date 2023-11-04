@@ -1,10 +1,11 @@
+import math
 import os
 import zipfile
 import telepot
 from shutil import rmtree
 from contextlib import suppress
 from telepot.namedtuple import InlineKeyboardMarkup, InlineKeyboardButton, Message
-from .config import BOT, SAVE_DIR_NAME, IMAGES_DIR_NAME, DOCS_DIR_NAME
+from .config import BOT, SAVE_DIR_NAME, IMAGES_DIR_NAME, DOCS_DIR_NAME, BUFFER_LIMIT
 
 
 def zipdir(path: str, ziph: zipfile.ZipFile, files_type: str) -> None:
@@ -37,10 +38,48 @@ def create_button(text: str, user_option: str, username: str) -> InlineKeyboardB
     )
 
 
-def clear_path(path: str) -> None:
+def clear_path(path: str) -> int:
+    remove_files_number = 0
     if os.path.exists(path):
+        remove_files_number = sum(1 for root, dirs, files in os.walk(path) for _ in files)
         with suppress(OSError):
             rmtree(path)
+    return remove_files_number
+
+
+def generate_removal_message(removed_images: int, removed_files: int) -> str:
+    messages = {
+        "image": removed_images,
+        "file": removed_files,
+    }
+
+    message_parts = [f"{messages[key]} {key}{'s' if messages[key] > 1 else ''}" for key in messages if
+                     messages[key] > 0]
+
+    if message_parts:
+        return " and ".join(message_parts) + " removed from buffer!"
+    else:
+        return "Nothing to remove from the buffer."
+
+
+def get_folder_content_size(path: str) -> float:
+    size = 0
+    if not os.path.exists(path):
+        return size
+
+    for element in os.scandir(path):
+        size += os.path.getsize(element)
+
+    return size / (1024 ** 2)
+
+
+def buffer_control(*disk_usage, images_path: str, files_path: str) -> str:
+    default_message_part = "Here is your archive!"
+    if math.ceil(sum(disk_usage)) >= BUFFER_LIMIT:
+        clear_path(files_path)
+        clear_path(images_path)
+        return f"{default_message_part}\nBuffer is cleared automatically because your zip is too large!"
+    return default_message_part
 
 
 class ActionProcessor:
@@ -78,7 +117,7 @@ class ActionProcessor:
                 ]
             )
 
-            BOT.sendMessage(chat_id, "Zip and save files from buffer?", reply_markup=keyboard)
+            BOT.sendMessage(chat_id, "Zip files from buffer?", reply_markup=keyboard)
         else:
             BOT.sendMessage(
                 chat_id,
@@ -103,14 +142,25 @@ class ActionProcessor:
             zipdir(os.path.join(self.BASE_IMAGES_PATH, username), zipf, IMAGES_DIR_NAME)
             zipdir(os.path.join(self.BASE_DOCS_PATH, username), zipf, DOCS_DIR_NAME)
             zipf.close()
-            BOT.sendDocument(from_id, open(zip_name, "rb"))
+            message = buffer_control(
+                get_folder_content_size(files_path),
+                get_folder_content_size(images_path),
+                images_path=images_path,
+                files_path=files_path
+            )
+            try:
+                BOT.sendDocument(from_id, open(zip_name, "rb"))
+                BOT.answerCallbackQuery(query_id, message)
+            except telepot.exception.TelegramError:
+                BOT.answerCallbackQuery(
+                    query_id,
+                    "Zip file size is above 50MB! Buffer cleared automatically.",
+                )
             os.remove(zip_name)
-            BOT.answerCallbackQuery(query_id, text="Here is your archive.\nBuffer cleared!")
-        elif action == "discard":
-            BOT.answerCallbackQuery(query_id, text="Buffer cleared successfully!")
-
-        clear_path(images_path)
-        clear_path(files_path)
+        else:
+            removed_images_number = clear_path(images_path)
+            removed_files_number = clear_path(files_path)
+            BOT.answerCallbackQuery(query_id, generate_removal_message(removed_images_number, removed_files_number))
 
     def is_buffer_filled(self, username: str) -> bool:
         is_images_buffer_filled = os.path.exists(os.path.join(self.BASE_IMAGES_PATH, username))

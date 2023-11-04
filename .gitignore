@@ -3,3 +3,4 @@ venv/
 **/__pycache__/
 files/
 .env
+bot.zip
