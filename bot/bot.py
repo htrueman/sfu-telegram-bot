@@ -1,7 +1,7 @@
 import time
 from telepot.loop import MessageLoop
 from .action_processor import ActionProcessor
-from .config import BOT
+from .config import Bot
 
 
 class ZipperBot:
@@ -9,7 +9,7 @@ class ZipperBot:
     def start() -> None:
         action = ActionProcessor()
         MessageLoop(
-            BOT,
+            Bot,
             handle={
                 "chat": action.on_chat_message,
                 "callback_query": action.on_callback_query,

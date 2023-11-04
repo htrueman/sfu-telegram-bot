@@ -7,7 +7,7 @@ from enum import Enum
 from shutil import rmtree
 from contextlib import suppress
 from telepot.namedtuple import InlineKeyboardMarkup, InlineKeyboardButton, Message
-from .config import BOT, SAVE_DIR_NAME, IMAGES_DIR_NAME, DOCS_DIR_NAME
+from .config import Bot, SAVE_DIR_NAME, IMAGES_DIR_NAME, DOCS_DIR_NAME
 
 
 class ContentType(Enum):
@@ -67,11 +67,58 @@ class ActionProcessor:
         else:
             self.handle_other_content(chat_id)
 
+    def on_callback_query(self, msg: Message) -> None:
+        query_id, from_id, query_data = telepot.glance(msg, flavor="callback_query")
+        action, username = query_data.split()[0], query_data.split()[1]
+
+        if not self.is_buffer_filled(username):
+            Bot.answerCallbackQuery(query_id, "Buffer is empty. Send files to fill it.")
+            return None
+
+        images_path = os.path.join(os.getcwd(), self.BASE_IMAGES_PATH, username)
+        files_path = os.path.join(os.getcwd(), self.BASE_DOCS_PATH, username)
+        zip_name = f"{username}.zip"
+
+        if action == "save":
+            self.rename_files_with_modified_time(images_path)
+            zipf = zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED)
+            self.zipdir(
+                os.path.join(self.BASE_IMAGES_PATH, username), zipf, IMAGES_DIR_NAME
+            )
+            self.zipdir(
+                os.path.join(self.BASE_DOCS_PATH, username), zipf, DOCS_DIR_NAME
+            )
+            zipf.close()
+            message = self.buffer_control(
+                self.get_folder_content_size(files_path),
+                self.get_folder_content_size(images_path),
+                images_path=images_path,
+                files_path=files_path,
+            )
+            try:
+                Bot.sendDocument(from_id, open(zip_name, "rb"))
+                Bot.answerCallbackQuery(query_id, message)
+            except telepot.exception.TelegramError:
+                Bot.answerCallbackQuery(
+                    query_id,
+                    "Zip file size is above 50MB! Buffer cleared automatically.",
+                )
+            os.remove(zip_name)
+        else:
+            removed_images_number = self.clear_path(images_path)
+            removed_files_number = self.clear_path(files_path)
+            Bot.answerCallbackQuery(
+                query_id,
+                self.generate_removal_message(
+                    removed_images_number, removed_files_number
+                ),
+            )
+
     def handle_photo(
         self, msg: Message, user_files_dir: str, chat_id: int, *args
     ) -> None:
         photo_id = msg["photo"][-1]["file_id"]
-        photo_data = BOT.getFile(photo_id)
+        photo_data = Bot.getFile(photo_id)
         photo_ext = f".{photo_data['file_path'].split('.')[-1]}"
         save_photo_name = photo_data["file_id"] + photo_ext
         local_image_path = os.path.join(user_files_dir, save_photo_name)
@@ -98,65 +145,11 @@ class ActionProcessor:
                 ]
             )
 
-            BOT.sendMessage(chat_id, "Zip files from buffer?", reply_markup=keyboard)
+            Bot.sendMessage(chat_id, "Zip files from buffer?", reply_markup=keyboard)
         else:
-            BOT.sendMessage(
+            Bot.sendMessage(
                 chat_id,
                 "Send me the files and I'll zip them for you. Type /zip after the files are uploaded.",
-            )
-
-    @staticmethod
-    def handle_other_content(chat_id: int) -> None:
-        BOT.sendMessage(
-            chat_id,
-            "Send me the files and I'll zip them for you. Type /zip after the files are uploaded.",
-        )
-
-    def on_callback_query(self, msg: Message) -> None:
-        query_id, from_id, query_data = telepot.glance(msg, flavor="callback_query")
-        action, username = query_data.split()[0], query_data.split()[1]
-
-        if not self.is_buffer_filled(username):
-            BOT.answerCallbackQuery(query_id, "Buffer is empty. Send files to fill it.")
-            return None
-
-        images_path = os.path.join(os.getcwd(), self.BASE_IMAGES_PATH, username)
-        files_path = os.path.join(os.getcwd(), self.BASE_DOCS_PATH, username)
-        zip_name = f"{username}.zip"
-
-        if action == "save":
-            self.rename_files_with_modified_time(images_path)
-            zipf = zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED)
-            self.zipdir(
-                os.path.join(self.BASE_IMAGES_PATH, username), zipf, IMAGES_DIR_NAME
-            )
-            self.zipdir(
-                os.path.join(self.BASE_DOCS_PATH, username), zipf, DOCS_DIR_NAME
-            )
-            zipf.close()
-            message = self.buffer_control(
-                self.get_folder_content_size(files_path),
-                self.get_folder_content_size(images_path),
-                images_path=images_path,
-                files_path=files_path,
-            )
-            try:
-                BOT.sendDocument(from_id, open(zip_name, "rb"))
-                BOT.answerCallbackQuery(query_id, message)
-            except telepot.exception.TelegramError:
-                BOT.answerCallbackQuery(
-                    query_id,
-                    "Zip file size is above 50MB! Buffer cleared automatically.",
-                )
-            os.remove(zip_name)
-        else:
-            removed_images_number = self.clear_path(images_path)
-            removed_files_number = self.clear_path(files_path)
-            BOT.answerCallbackQuery(
-                query_id,
-                self.generate_removal_message(
-                    removed_images_number, removed_files_number
-                ),
             )
 
     def is_buffer_filled(self, username: str) -> bool:
@@ -168,12 +161,40 @@ class ActionProcessor:
         )
         return is_images_buffer_filled or is_docs_buffer_filled
 
+    def get_folder_content_size(self, path: str) -> float:
+        size = 0
+        if not os.path.exists(path):
+            return size
+
+        for element in os.scandir(path):
+            size += os.path.getsize(element)
+
+        return size / self.BYTE_TO_MEGABYTE
+
+    def buffer_control(self, *disk_usage, images_path: str, files_path: str) -> str:
+        default_message_part = "Here is your archive!"
+        if math.ceil(sum(disk_usage)) >= self.BUFFER_LIMIT:
+            removed_images_number = self.clear_path(files_path)
+            removed_files_number = self.clear_path(images_path)
+            return "".join(
+                f"{default_message_part}\nBuffer is cleared automatically because your zip is too large!\n"
+                f"{self.generate_removal_message(removed_images_number, removed_files_number)}"
+            )
+        return default_message_part
+
+    @staticmethod
+    def handle_other_content(chat_id: int) -> None:
+        Bot.sendMessage(
+            chat_id,
+            "Send me the files and I'll zip them for you. Type /zip after the files are uploaded.",
+        )
+
     @staticmethod
     def download_control(file_id: str, dest: str, chat_id: int) -> None:
         try:
-            BOT.download_file(file_id, dest)
+            Bot.download_file(file_id, dest)
         except telepot.exception.TelegramError:
-            BOT.sendMessage(
+            Bot.sendMessage(
                 chat_id,
                 "File too large! Unable to download. Please try to send a smaller one.",
             )
@@ -237,23 +258,4 @@ class ActionProcessor:
 
         if message_parts:
             return " and ".join(message_parts) + " removed from buffer!"
-        else:
-            return "Nothing to remove from the buffer."
-
-    def get_folder_content_size(self, path: str) -> float:
-        size = 0
-        if not os.path.exists(path):
-            return size
-
-        for element in os.scandir(path):
-            size += os.path.getsize(element)
-
-        return size / self.BYTE_TO_MEGABYTE
-
-    def buffer_control(self, *disk_usage, images_path: str, files_path: str) -> str:
-        default_message_part = "Here is your archive!"
-        if math.ceil(sum(disk_usage)) >= self.BUFFER_LIMIT:
-            self.clear_path(files_path)
-            self.clear_path(images_path)
-            return f"{default_message_part}\nBuffer is cleared automatically because your zip is too large!"
-        return default_message_part
+        return "Nothing to remove from the buffer."
