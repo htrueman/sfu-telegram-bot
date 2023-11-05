@@ -1,7 +1,7 @@
 import time
 from telepot.loop import MessageLoop
 from .action_processor import ActionProcessor
-from .config import Bot
+from .config import Bot, REQUEST_TIMEOUT
 
 
 class ZipperBot:
@@ -18,4 +18,4 @@ class ZipperBot:
 
         print("Listening ...")
         while True:
-            time.sleep(1)
+            time.sleep(REQUEST_TIMEOUT)
