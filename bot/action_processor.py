@@ -23,7 +23,7 @@ class ActionProcessor:
     BASE_IMAGES_PATH = os.path.join(SAVE_DIR_NAME, IMAGES_DIR_NAME)
     BASE_DOCS_PATH = os.path.join(SAVE_DIR_NAME, DOCS_DIR_NAME)
     BUFFER_LIMIT = 20
-    BYTE_TO_MEGABYTE = 1024**2
+    BYTE_TO_MEGABYTE = 1024 ** 2
 
     def __init__(self):
         self.content_type_actions = {
@@ -35,7 +35,10 @@ class ActionProcessor:
         }
 
     def on_chat_message(self, msg: Message) -> None:
-        content_type, chat_type, chat_id = telepot.glance(msg)
+        try:
+            content_type, chat_type, chat_id = telepot.glance(msg)
+        except KeyError:
+            return None
         username = msg["from"]["username"]
         with suppress(ValueError):
             converted_content_type = ContentType.ANY
@@ -53,8 +56,8 @@ class ActionProcessor:
         ]
 
         if (
-            not os.path.exists(user_files_dir)
-            and converted_content_type in document_content_types
+                not os.path.exists(user_files_dir)
+                and converted_content_type in document_content_types
         ):
             os.makedirs(user_files_dir)
 
@@ -115,7 +118,7 @@ class ActionProcessor:
             )
 
     def handle_photo(
-        self, msg: Message, user_files_dir: str, chat_id: int, *args
+            self, msg: Message, user_files_dir: str, chat_id: int, *args
     ) -> None:
         photo_id = msg["photo"][-1]["file_id"]
         photo_data = Bot.getFile(photo_id)
@@ -125,7 +128,7 @@ class ActionProcessor:
         self.download_control(photo_id, local_image_path, chat_id)
 
     def handle_document(
-        self, msg: Message, user_files_dir: str, chat_id: int, document_type: str
+            self, msg: Message, user_files_dir: str, chat_id: int, document_type: str
     ) -> None:
         media_id = msg[document_type]["file_id"]
         media_name = msg[document_type]["file_name"]
@@ -225,7 +228,7 @@ class ActionProcessor:
 
     @staticmethod
     def create_button(
-        text: str, user_option: str, username: str
+            text: str, user_option: str, username: str
     ) -> InlineKeyboardButton:
         return InlineKeyboardButton(
             text=text,
