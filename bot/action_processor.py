@@ -1,13 +1,10 @@
 import math
 import os
 import zipfile
-import telepot
 from datetime import datetime
 from enum import Enum
 from shutil import rmtree
 from contextlib import suppress
-from telepot.namedtuple import InlineKeyboardMarkup, InlineKeyboardButton, Message
-from .config import Bot, SAVE_DIR_NAME, IMAGES_DIR_NAME, DOCS_DIR_NAME
 
 
 class ContentType(Enum):
