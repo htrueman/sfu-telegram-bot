@@ -2,5 +2,6 @@
 venv/
 **/__pycache__/
 files/
+tgbot_template_v3-master/
 .env
 bot.zip
