@@ -44,7 +44,9 @@ async def save_callback(query: CallbackQuery):
             reply_to_message_id=query.message.message_id,
         )
     except TelegramEntityTooLarge:
-        await query.answer("Zip file is to big!\nMust be less than 50 MB.\nYou need to clear buffer.")
+        await query.answer(
+            "Zip file is to big!\nMust be less than 50 MB.\nYou need to clear buffer."
+        )
     finally:
         os.remove(zip_name)
 

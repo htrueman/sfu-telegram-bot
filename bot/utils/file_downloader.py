@@ -39,7 +39,7 @@ class BaseDownloader(ABC):
                 f"The maximum size is {MAX_BUFFER_SIZE_BS // (1024 ** 2)} MB.\n"
                 f"{(MAX_BUFFER_SIZE_BS - current_size) / (1024 ** 2):.2f} MB available.",
                 reply_to_message_id=self.message.message_id,
-                reply_markup=self.keyboard
+                reply_markup=self.keyboard,
             )
         else:
             local_file_path = self._process_duplicate_file(local_file_path)
