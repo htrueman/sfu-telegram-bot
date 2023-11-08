@@ -34,5 +34,8 @@ class FileRemover:
         ]
 
         if message_parts:
-            return " , ".join(message_parts) + " removed from buffer!\nBuffer is empty now."
+            return (
+                " , ".join(message_parts)
+                + " removed from buffer!\nBuffer is empty now."
+            )
         return "Nothing to remove from the buffer."

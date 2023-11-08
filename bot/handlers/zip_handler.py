@@ -1,7 +1,9 @@
+import itertools
 import os
 import zipfile
 
 from aiogram import Router
+from aiogram.exceptions import TelegramEntityTooLarge
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, FSInputFile
@@ -25,7 +27,7 @@ async def zip_handler(message: Message):
 
 
 @zip_router.callback_query(ZipperCallback.filter(F.option == ZipperOption.SAVE))
-async def save_callback(query: CallbackQuery, state: FSMContext):
+async def save_callback(query: CallbackQuery):
     username = query.from_user.username
     if not check_if_user_directories_have_files(username):
         await query.answer(f"Buffer is empty! Nothing to zip.")
@@ -35,18 +37,26 @@ async def save_callback(query: CallbackQuery, state: FSMContext):
     with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zipf:
         zipdir(zipf, username)
 
-    await query.bot.send_document(
-        chat_id=query.message.chat.id,
-        document=FSInputFile(zip_name),
-        reply_to_message_id=query.message.message_id,
-    )
-    os.remove(zip_name)
+    try:
+        await query.bot.send_document(
+            chat_id=query.message.chat.id,
+            document=FSInputFile(zip_name),
+            reply_to_message_id=query.message.message_id,
+        )
+    except TelegramEntityTooLarge:
+        await query.answer("Zip file is to big!\nMust be less than 50 MB.\nYou need to clear buffer.")
+    finally:
+        os.remove(zip_name)
 
-    await query.answer(f"Zipping!")
+    await query.answer("Catch your zip!")
 
 
 @zip_router.callback_query(ZipperCallback.filter(F.option == ZipperOption.OPEN))
-async def save_callback(query: CallbackQuery, state: FSMContext):
+async def open_callback(query: CallbackQuery, state: FSMContext):
+    state_data = await state.get_data()
+    if BufferForm.opened in state_data:
+        await query.answer(f"Buffer is opened already!")
+        return None
     await state.set_state(BufferForm.opened)
     await state.set_data({BufferForm.opened: "active"})
     await query.answer(f"Buffer is open to receive your files!\n")
@@ -57,6 +67,7 @@ async def close_callback(query: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     if BufferForm.opened in state_data:
         await state.clear()
+        await state.set_data(dict(itertools.islice(state_data.items(), 1)))
         await query.answer(f"Buffer is closed! It wont receive your files.")
     await query.answer(f"Buffer is closed already!")
 

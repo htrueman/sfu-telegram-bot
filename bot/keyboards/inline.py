@@ -10,6 +10,16 @@ class ZipperCallback(CallbackData, prefix="zipper"):
     username: str
 
 
+class ClearBufferKeyboard(InlineKeyboardBuilder):
+    def __init__(self, username: str) -> None:
+        super().__init__()
+        self.button(
+            text="Clear buffer",
+            callback_data=ZipperCallback(option=ZipperOption.CLEAR, username=username),
+        )
+        self.adjust(1)
+
+
 class ZipperKeyboard(InlineKeyboardBuilder):
     def __init__(self, username: str, sizes: List[int]) -> None:
         super().__init__()
@@ -25,8 +35,5 @@ class ZipperKeyboard(InlineKeyboardBuilder):
             text="Close buffer",
             callback_data=ZipperCallback(option=ZipperOption.CLOSE, username=username),
         )
-        self.button(
-            text="Clear buffer",
-            callback_data=ZipperCallback(option=ZipperOption.CLEAR, username=username),
-        )
+        self.attach(ClearBufferKeyboard(username))
         self.adjust(*sizes)

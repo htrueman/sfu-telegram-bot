@@ -1,10 +1,9 @@
-import math
 import os
 from abc import ABC, abstractmethod
 from typing import Optional, Any
 from aiogram.enums import ContentType
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardMarkup
 
 from .constants import DOWNLOADS_DIR, MAX_BUFFER_SIZE_BS, MAX_DOWNLOAD_FILE_SIZE_MB
 
@@ -15,10 +14,12 @@ class BaseDownloader(ABC):
     def __init__(
         self,
         message: Message,
+        clear_keyboard: InlineKeyboardMarkup,
         file_type: Optional[ContentType] = None,
         allow_duplicate_files: Optional[bool] = True,
     ) -> None:
         self.message = message
+        self.keyboard = clear_keyboard
         self.file_type = file_type
         self.download_path = os.path.join(
             DOWNLOADS_DIR, file_type, message.from_user.username
@@ -30,14 +31,15 @@ class BaseDownloader(ABC):
         self, file_id: str, local_file_path: str, file_size: int
     ) -> None:
         current_size = self.get_folder_content_size(self.download_path)
-        future_size = math.ceil(current_size + file_size)
-        if future_size > MAX_BUFFER_SIZE_BS:
+        future_size = current_size + file_size
+        if future_size >= MAX_BUFFER_SIZE_BS or MAX_BUFFER_SIZE_BS - current_size <= 0:
             await self.message.bot.send_message(
                 chat_id=self.message.chat.id,
                 text=f"Could not be loaded to buffer!\n"
                 f"The maximum size is {MAX_BUFFER_SIZE_BS // (1024 ** 2)} MB.\n"
                 f"{(MAX_BUFFER_SIZE_BS - current_size) / (1024 ** 2):.2f} MB available.",
-                reply_to_message_id=self.message.message_id
+                reply_to_message_id=self.message.message_id,
+                reply_markup=self.keyboard
             )
         else:
             local_file_path = self._process_duplicate_file(local_file_path)
@@ -50,7 +52,7 @@ class BaseDownloader(ABC):
             await self.message.bot.send_message(
                 chat_id=self.message.chat.id,
                 text=f"File is to big! Must be less than {MAX_DOWNLOAD_FILE_SIZE_MB} MB.",
-                reply_to_message_id=self.message.message_id
+                reply_to_message_id=self.message.message_id,
             )
 
     def _process_duplicate_file(self, local_file_path: str) -> str:
