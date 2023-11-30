@@ -40,5 +40,5 @@ class ZipperBot:
 
         self.__register_global_middlewares(dp, config)
 
-        await self.__on_startup(bot, config.base_bot.admin_ids)
+        # await self.__on_startup(bot, config.base_bot.admin_ids)  # Uncomment to enable broadcaster
         await dp.start_polling(bot)
